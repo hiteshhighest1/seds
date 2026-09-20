@@ -1,0 +1,269 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="{% static 'images/logo.png' %}">
+    <title>Contact</title>
+
+    <!-- Fonts: Spectral for display, Inter for body/UI -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,300;0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Tailwind Custom Configuration -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        void: '#05060a',
+                        panel: '#0d0f1a',
+                        brass: '#b98d4a',
+                        brassLight: '#d4b077',
+                        starlight: '#eef2f6',
+                        dust: '#8992a6',
+                        nebula: '#4c6fa5',
+                    },
+                    fontFamily: {
+                        serif: ['Spectral', 'serif'],
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        @media (prefers-reduced-motion: reduce) {
+            * { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+        }
+        a:focus-visible, button:focus-visible {
+            outline: 2px solid #b98d4a;
+            outline-offset: 3px;
+            border-radius: 2px;
+        }
+        .brass-hover { position: relative; }
+        .brass-hover::after {
+            content: '';
+            position: absolute;
+            left: 0; bottom: -1px;
+            width: 0%; height: 1px;
+            background: #b98d4a;
+            transition: width 0.4s ease;
+        }
+        .brass-hover:hover::after { width: 100%; }
+        .rule { border-top: 1px solid rgba(238, 242, 246, 0.08); }
+
+        /* Starfield */
+        @keyframes star-twinkle {
+            0%, 100% { opacity: var(--min-opacity, 0.15); }
+            50% { opacity: var(--max-opacity, 0.9); }
+        }
+        .starfield-dot {
+            position: absolute;
+            background: #ffffff;
+            border-radius: 9999px;
+            animation: star-twinkle var(--duration, 3.5s) ease-in-out infinite;
+            animation-delay: var(--delay, 0s);
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .starfield-dot { animation: none; opacity: 0.5; }
+        }
+
+        /* Form fields */
+        .field-input {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid rgba(255,255,255,0.1);
+            transition: border-color 0.3s ease, background 0.3s ease;
+        }
+        .field-input:focus {
+            outline: none;
+            border-color: rgba(185, 141, 74, 0.6);
+            background: rgba(255,255,255,0.03);
+        }
+        .field-input::placeholder { color: #8992a6; opacity: 0.6; }
+    </style>
+</head>
+<body class="bg-void text-starlight font-sans antialiased min-h-screen selection:bg-brass selection:text-void relative overflow-x-hidden">
+
+    <!-- Background wash + faint nebula tint -->
+    <div class="fixed inset-0 pointer-events-none z-0 bg-gradient-to-b from-[#05060a] via-[#070811] to-[#04050a]"></div>
+    <div id="ambient-glow-1" class="fixed top-1/4 -left-40 w-[28rem] h-[28rem] bg-nebula/10 rounded-full blur-[150px] pointer-events-none z-0"></div>
+    <div id="ambient-glow-2" class="fixed bottom-1/4 -right-40 w-[26rem] h-[26rem] bg-brass/10 rounded-full blur-[150px] pointer-events-none z-0"></div>
+
+    <!-- Starfield -->
+    <div id="starfield" aria-hidden="true" class="fixed inset-0 z-0 overflow-hidden pointer-events-none"></div>
+
+    <!-- Header -->
+    <header class="fixed top-0 left-0 right-0 z-50 bg-void/70 backdrop-blur-lg border-b border-white/[0.06]">
+        <div class="max-w-6xl mx-auto px-6 lg:px-10 h-16 flex items-center justify-between">
+            <a href="{% url 'home' %}" class="text-sm font-medium tracking-wide text-starlight flex items-center gap-2.5">
+                <img src="{% static 'images/logo.png' %}" alt="SEDS Loyola logo" class="w-7 h-7 object-contain shrink-0">
+                SEDS Loyola
+            </a>
+            <nav class="hidden md:flex gap-9 text-sm text-dust">
+                <a href="{% url 'home' %}" class="hover:text-starlight brass-hover transition">Home</a>
+                <a href="{% url 'magazine' %}" class="hover:text-starlight brass-hover transition">Magazine</a>
+                <a href="{% url 'gallery' %}" class="hover:text-starlight brass-hover transition">Gallery</a>
+                <a href="{% url 'contact' %}" class="text-starlight brass-hover">Contact</a>
+            </nav>
+            <button id="menu-toggle" class="md:hidden text-starlight" aria-label="Open menu" aria-expanded="false">
+                <svg id="menu-icon-open" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+                <svg id="menu-icon-close" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="hidden"><path d="M6 6l12 12M18 6L6 18"/></svg>
+            </button>
+        </div>
+        <div id="mobile-menu" class="hidden md:hidden border-t border-white/[0.06] bg-void/95 px-6 py-4 flex flex-col gap-4 text-sm text-dust">
+            <a href="{% url 'home' %}" class="hover:text-starlight transition">Home</a>
+            <a href="{% url 'magazine' %}" class="hover:text-starlight transition">Magazine</a>
+            <a href="{% url 'gallery' %}" class="hover:text-starlight transition">Gallery</a>
+            <a href="{% url 'contact' %}" class="text-starlight">Contact</a>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="relative z-20">
+
+        <!-- Hero -->
+        <section class="pt-40 pb-16 px-6 lg:px-10 max-w-5xl mx-auto text-center">
+            <p class="text-sm text-dust mb-5">Get in touch</p>
+            <h1 class="font-serif text-4xl md:text-5xl font-light text-starlight mb-6 leading-[1.15]">Contact us</h1>
+            <p class="text-lg text-dust font-light max-w-2xl mx-auto leading-relaxed">
+                Questions about SEDS-Loyola, ideas for a collaboration or a simple message? We would love to hear it from you.
+            </p>
+        </section>
+
+        <!-- Contact info + form -->
+        <section class="pb-28 px-6 lg:px-10 max-w-6xl mx-auto">
+            <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,320px)_1fr] gap-16">
+
+                <!-- Info -->
+                <div class="space-y-10">
+                    <div class="rule pt-8">
+                        <p class="text-sm text-dust mb-2">Email</p>
+                        <a href="mailto:seds.loyola@sxc.edu.np" class="text-starlight brass-hover">seds.loyola@sxc.edu.np</a>
+                    </div>
+                    <div class="rule pt-8">
+                        <p class="text-sm text-dust mb-2">Location</p>
+                        <p class="text-starlight"><a href="https://loyola.sxc.edu.np/" target="_blank">St. Xavier's College</a><br><a target="_blank" href="https://www.google.com/maps/dir//St.+Xavier's+College,+M8VC%2B8FC,+Kathmandu,+Bagmati+Province+44600/@27.6718117,85.3652949,15z/data=!4m8!4m7!1m0!1m5!1m1!1s0x39eb19b032e93fc1:0x4a61dc499d928027!2m2!1d85.3211277!2d27.6933089?entry=ttu&g_ep=EgoyMDI2MDkxNS4wIKXMDSoASAFQAw%3D%3D">Maitighar, Kathmandu</a></p>
+                    </div>
+                    <div class="rule pt-8">
+                        <p class="text-sm text-dust mb-2">Social Media</p>
+                        <div class="flex gap-4 mt-2">
+                            <a href="https://www.instagram.com/seds.loyola/" target="_blank" class="text-starlight brass-hover text-xl" aria-label="Instagram">
+                                <i class="fab fa-instagram"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Form -->
+                <form method="post" action="" class="space-y-6">
+                    {% csrf_token %}
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                        <div>
+                            <label for="contact-name" class="block text-sm text-dust mb-2">Name</label>
+                            <input type="text" id="contact-name" name="name" required
+                                class="field-input w-full rounded px-4 py-3 text-starlight text-sm">
+                        </div>
+                        <div>
+                            <label for="contact-email" class="block text-sm text-dust mb-2">Email</label>
+                            <input type="email" id="contact-email" name="email" required
+                                class="field-input w-full rounded px-4 py-3 text-starlight text-sm">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label for="contact-subject" class="block text-sm text-dust mb-2">Subject</label>
+                        <input type="text" id="contact-subject" name="subject"
+                            class="field-input w-full rounded px-4 py-3 text-starlight text-sm">
+                    </div>
+
+                    <div>
+                        <label for="contact-message" class="block text-sm text-dust mb-2">Message</label>
+                        <textarea id="contact-message" name="message" rows="6" required
+                            class="field-input w-full rounded px-4 py-3 text-starlight text-sm resize-none"></textarea>
+                    </div>
+
+                    <button type="submit"
+                        class="px-7 py-3 rounded bg-starlight text-void font-medium text-sm hover:bg-brassLight transition duration-300">
+                        Send message
+                    </button>
+                </form>
+
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="py-14 px-6 border-t border-white/[0.06] bg-black/40 text-center relative z-20">
+        <div class="max-w-5xl mx-auto space-y-2">
+            <p class="text-starlight text-sm">SEDS-Loyola · St. Xavier's College</p>
+            <p class="text-xs text-dust/60 pt-3">© 2026 SEDS Loyola. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <!-- Mobile menu toggle -->
+    <script>
+        const menuToggle = document.getElementById('menu-toggle');
+        const mobileMenu = document.getElementById('mobile-menu');
+        const iconOpen = document.getElementById('menu-icon-open');
+        const iconClose = document.getElementById('menu-icon-close');
+        menuToggle.addEventListener('click', () => {
+            const isOpen = !mobileMenu.classList.contains('hidden');
+            mobileMenu.classList.toggle('hidden');
+            iconOpen.classList.toggle('hidden');
+            iconClose.classList.toggle('hidden');
+            menuToggle.setAttribute('aria-expanded', String(!isOpen));
+        });
+        mobileMenu.querySelectorAll('a').forEach(a => a.addEventListener('click', () => {
+            mobileMenu.classList.add('hidden');
+            iconOpen.classList.remove('hidden');
+            iconClose.classList.add('hidden');
+        }));
+    </script>
+
+    <!-- Starfield generator -->
+    <script>
+        (function () {
+            var field = document.getElementById('starfield');
+            if (!field) return;
+            var count = window.innerWidth < 640 ? 90 : 180;
+            var fragment = document.createDocumentFragment();
+
+            for (var i = 0; i < count; i++) {
+                var dot = document.createElement('div');
+                dot.className = 'starfield-dot';
+
+                var size = (Math.random() * 1.6 + 0.6).toFixed(2);
+                var top = (Math.random() * 100).toFixed(2);
+                var left = (Math.random() * 100).toFixed(2);
+                var duration = (Math.random() * 3 + 2).toFixed(2);
+                var delay = (Math.random() * 5).toFixed(2);
+                var minOpacity = (Math.random() * 0.15 + 0.05).toFixed(2);
+                var maxOpacity = (Math.random() * 0.4 + 0.6).toFixed(2);
+
+                dot.style.width = size + 'px';
+                dot.style.height = size + 'px';
+                dot.style.top = top + '%';
+                dot.style.left = left + '%';
+                dot.style.setProperty('--duration', duration + 's');
+                dot.style.setProperty('--delay', delay + 's');
+                dot.style.setProperty('--min-opacity', minOpacity);
+                dot.style.setProperty('--max-opacity', maxOpacity);
+
+                fragment.appendChild(dot);
+            }
+
+            field.appendChild(fragment);
+        })();
+    </script>
+</body>
+</html>

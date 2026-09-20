@@ -1,0 +1,581 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="{% static 'images/logo.png' %}">
+    <title>SEDS Loyola</title>
+
+    <!-- Fonts: Spectral for display, Inter for body/UI -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,300;0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <!-- Tailwind Custom Configuration -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        void: '#05060a',
+                        panel: '#0d0f1a',
+                        brass: '#b98d4a',
+                        brassLight: '#d4b077',
+                        starlight: '#eef2f6',
+                        dust: '#8992a6',
+                        nebula: '#4c6fa5',
+                    },
+                    fontFamily: {
+                        serif: ['Spectral', 'serif'],
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        @media (prefers-reduced-motion: reduce) {
+            * { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+        }
+        a:focus-visible, button:focus-visible {
+            outline: 2px solid #b98d4a;
+            outline-offset: 3px;
+            border-radius: 2px;
+        }
+        .rule {
+            border-top: 1px solid rgba(238, 242, 246, 0.08);
+        }
+        .brass-hover {
+            position: relative;
+        }
+        .brass-hover::after {
+            content: '';
+            position: absolute;
+            left: 0; bottom: -1px;
+            width: 0%; height: 1px;
+            background: #b98d4a;
+            transition: width 0.4s ease;
+        }
+        .brass-hover:hover::after { width: 100%; }
+        .news-card { transition: transform 0.4s ease; }
+        .news-card:hover { transform: translateY(-3px); }
+
+        /* Starfield: twinkling dots layered behind the Three.js scene, for extra astronomy vibe */
+        @keyframes star-twinkle {
+            0%, 100% { opacity: var(--min-opacity, 0.15); }
+            50% { opacity: var(--max-opacity, 0.9); }
+        }
+        .starfield-dot {
+            position: absolute;
+            background: #ffffff;
+            border-radius: 9999px;
+            animation: star-twinkle var(--duration, 3.5s) ease-in-out infinite;
+            animation-delay: var(--delay, 0s);
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .starfield-dot { animation: none; opacity: 0.5; }
+        }
+    </style>
+</head>
+<body class="bg-void text-starlight font-sans antialiased min-h-screen selection:bg-brass selection:text-void relative overflow-x-hidden">
+
+    <!-- Background wash + faint nebula tint (quiet, not the main event) -->
+    <div class="fixed inset-0 pointer-events-none z-0 bg-gradient-to-b from-[#05060a] via-[#070811] to-[#04050a]"></div>
+    <div id="ambient-glow-1" class="fixed top-1/4 -left-40 w-[28rem] h-[28rem] bg-nebula/10 rounded-full blur-[150px] pointer-events-none z-0 transition-transform duration-700 ease-out"></div>
+    <div id="ambient-glow-2" class="fixed bottom-1/4 -right-40 w-[26rem] h-[26rem] bg-brass/10 rounded-full blur-[150px] pointer-events-none z-0 transition-transform duration-700 ease-out"></div>
+
+    <!-- Starfield: small twinkling dots, fixed behind everything -->
+    <div id="starfield" aria-hidden="true" class="fixed inset-0 z-0 overflow-hidden pointer-events-none"></div>
+
+    <!-- Immersive 3D Earth Canvas -->
+    <canvas id="space-canvas" class="fixed inset-0 pointer-events-none z-10"></canvas>
+
+    <!-- Header -->
+    <header class="fixed top-0 left-0 right-0 z-50 bg-void/70 backdrop-blur-lg border-b border-white/[0.06]">
+        <div class="max-w-6xl mx-auto px-6 lg:px-10 h-16 flex items-center justify-between">
+            <a href="{% url 'home' %}" class="text-sm font-medium tracking-wide text-starlight flex items-center gap-2.5">
+                <img src="{% static 'images/logo.png' %}" alt="SEDS Loyola logo" class="w-7 h-7 object-contain shrink-0">
+                SEDS Loyola
+            </a>
+            <nav class="hidden md:flex gap-9 text-sm text-dust">
+                <a href="{% url 'home' %}" class="text-starlight brass-hover">Home</a>
+                <a href="{% url 'magazine' %}" class="hover:text-starlight brass-hover transition">Magazine</a>
+                <a href="{% url 'gallery' %}" class="hover:text-starlight brass-hover transition">Gallery</a>
+                <a href="{% url 'contact' %}" class="hover:text-starlight brass-hover transition">Contact</a>
+            </nav>
+            <button id="menu-toggle" class="md:hidden text-starlight" aria-label="Open menu" aria-expanded="false">
+                <svg id="menu-icon-open" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+                <svg id="menu-icon-close" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="hidden"><path d="M6 6l12 12M18 6L6 18"/></svg>
+            </button>
+        </div>
+        <div id="mobile-menu" class="hidden md:hidden border-t border-white/[0.06] bg-void/95 px-6 py-4 flex flex-col gap-4 text-sm text-dust">
+            <a href="{% url 'home' %}" class="text-starlight">Home</a>
+            <a href="{% url 'magazine' %}" class="hover:text-starlight transition">Magazine</a>
+            <a href="{% url 'gallery' %}" class="hover:text-starlight transition">Gallery</a>
+            <a href="{% url 'contact' %}" class="hover:text-starlight transition">Contact</a>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="relative z-20">
+
+        <!-- Hero Section -->
+        <section class="relative min-h-screen flex items-center px-6 lg:px-10 pt-16">
+            <div class="max-w-6xl mx-auto w-full">
+                <div class="max-w-xl">
+                    <p class="font-base text-dust/80 text-lg mb-6">Students for the Exploration and Development of Space</p>
+
+                    <h1 class="font-serif text-5xl sm:text-6xl lg:text-7xl font-light text-starlight mb-7 leading-[1.05] tracking-tight">
+                        SEDS&#8209;Loyola
+                    </h1>
+
+                    <p class="text-dust text-base sm:text-lg font-light mb-10 leading-relaxed max-w-md">
+                        SEDS-Loyola is a student-led club at St. Xavier's Loyola Campus and a chapter of the non-profit international student organization SEDS
+                    </p>
+
+                    <div class="flex items-center gap-8 flex-wrap">
+                        <a href="{% url 'gallery' %}" class="px-6 py-3 rounded bg-starlight text-void font-medium text-sm hover:bg-brassLight transition duration-300">
+                            Gallery
+                        </a>
+                        <a href="{% url 'contact' %}" class="text-sm text-starlight brass-hover">
+                            Contact Us
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- About / Pillars Section -->
+        <section class="relative py-32 px-6 lg:px-10 max-w-7xl mx-auto overflow-hidden">
+            <!-- Subtle background glow -->
+            <div class="absolute -top-32 -left-32 w-96 h-96 bg-white/[0.03] rounded-full blur-3xl pointer-events-none"></div>
+            <div class="relative grid grid-cols-1 lg:grid-cols-[0.8fr_1.5fr] gap-20 lg:gap-28 items-start">
+
+                <!-- Left: Statement -->
+                <div class="lg:sticky lg:top-32">
+                    <h2 class="font-serif text-5xl md:text-6xl lg:text-7xl font-light text-starlight leading-[0.95] tracking-tight">
+                        Explore.
+                        <span class="block text-dust/50">Inspire.</span>
+                        <span class="block">Innovate.</span>
+                    </h2>
+                    <div class="w-12 h-px bg-brass/50 mt-10 mb-6"></div>
+                </div>
+                <!-- Right: Activities -->
+                <div class="space-y-0">
+                    <!-- Activity 01 -->
+                    <div class="group relative border-t border-white/10 py-10 transition-all duration-500 hover:border-white/30">
+                        <div class="flex gap-6">
+                            <span class="font-serif text-2xl text-brass/70 pt-0.5 leading-none" aria-hidden="true">
+                                &#9734;
+                            </span>
+                            <div class="flex-1">
+                                <div class="flex items-start justify-between gap-6">
+                                    <h3 class="text-starlight text-xl md:text-2xl font-medium tracking-tight">
+                                        Space & STEM Activities
+                                    </h3>
+                                </div>
+                                <p class="text-dust/60 text-base font-light leading-relaxed max-w-xl mt-4">
+                                    Astronomy and space workshops, talks, telescope and
+                                    observatory sessions, competitions, challenges, and
+                                    model-making activities.
+                                </p>
+                            </div>
+
+                        </div>
+                    </div>
+
+
+                    <!-- Activity 02 -->
+                    <div class="group relative border-t border-white/10 py-10 transition-all duration-500 hover:border-white/30">
+
+                        <div class="flex gap-6">
+
+                            <span class="font-serif text-2xl text-nebula/70 pt-0.5 leading-none" aria-hidden="true">
+                                &#9737;
+                            </span>
+
+                            <div class="flex-1">
+                                <div class="flex items-start justify-between gap-6">
+
+                                    <h3 class="text-starlight text-xl md:text-2xl font-medium tracking-tight">
+                                        Research & Collaboration
+                                    </h3>
+                                </div>
+
+                                <p class="text-dust/60 text-base font-light leading-relaxed max-w-xl mt-4">
+                                    Research and literature reviews, outreach programmes,
+                                    and collaborative events with other clubs and
+                                    organisations, alongside other space, astronomy,
+                                    and STEM initiatives.
+                                </p>
+                            </div>
+
+                        </div>
+                    </div>
+
+
+                    <!-- Bottom border -->
+                    <div class="border-t border-white/10"></div>
+
+                </div>
+            </div>
+        </section>
+
+        <!-- Team Section: masthead-style list, not identical cards -->
+        <section id="team" class="py-28 px-6 lg:px-10 max-w-6xl mx-auto border-t border-white/[0.06]">
+            <h2 class="font-serif text-3xl font-light text-starlight mb-14">Club Executives</h2>
+
+            <div class="border-t border-b border-white/[0.06] divide-y divide-white/[0.06] lg:divide-y-0 lg:grid lg:grid-cols-2 lg:divide-x lg:divide-white/[0.06]">
+                <div class="py-7 lg:pr-10 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-8">
+                    <div class="w-11 h-11 rounded-full border border-brass/40 flex items-center justify-center text-brass font-serif text-sm shrink-0">BK</div>
+                    <div class="flex-1">
+                        <p class="font-serif text-xl text-starlight">Mr. Balaram Khadka</p>
+                        <p class="text-dust text-sm font-light mt-1">Club Mentor</p>
+                    </div>
+                </div>
+                <div class="py-7 lg:pl-10 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-8">
+                    <div class="w-11 h-11 rounded-full border border-nebula/50 flex items-center justify-center text-nebula font-serif text-sm shrink-0">BG</div>
+                    <div class="flex-1">
+                        <p class="font-serif text-xl text-starlight">Dr. Basu Dev Ghimire</p>
+                        <p class="text-dust text-sm font-light mt-1">Club Advisor</p>
+                    </div>
+                </div>
+            </div>
+
+            <h3 class="font-serif text-xl font-light text-starlight mt-16 mb-6">Executive team</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-12">
+                <div class="flex justify-between items-baseline gap-6 py-3 border-b border-white/[0.06]">
+                    <span class="text-dust text-sm">President</span>
+                    <span class="text-starlight text-sm font-medium text-right">Sagun Vaidya</span>
+                </div>
+                <div class="flex justify-between items-baseline gap-6 py-3 border-b border-white/[0.06]">
+                    <span class="text-dust text-sm">Vice President</span>
+                    <span class="text-starlight text-sm font-medium text-right">Sanyog Neupane</span>
+                </div>
+                <div class="flex justify-between items-baseline gap-6 py-3 border-b border-white/[0.06]">
+                    <span class="text-dust text-sm">Secretary</span>
+                    <span class="text-starlight text-sm font-medium text-right">Abhijan Poudel</span>
+                </div>
+                <div class="flex justify-between items-baseline gap-6 py-3 border-b border-white/[0.06]">
+                    <span class="text-dust text-sm">Event Manager</span>
+                    <span class="text-starlight text-sm font-medium text-right">Rudraksha Neupane</span>
+                </div>
+                <div class="flex justify-between items-baseline gap-6 py-3 border-b border-white/[0.06]">
+                    <span class="text-dust text-sm">Event Manager</span>
+                    <span class="text-starlight text-sm font-medium text-right">Manish Dhakal</span>
+                </div>
+                <div class="flex justify-between items-baseline gap-6 py-3 border-b border-white/[0.06]">
+                    <span class="text-dust text-sm">Academic Journal Manager</span>
+                    <span class="text-starlight text-sm font-medium text-right">Aayushma Neupane</span>
+                </div>
+                <div class="flex justify-between items-baseline gap-6 py-3 border-b border-white/[0.06]">
+                    <span class="text-dust text-sm">Academic Journal Manager</span>
+                    <span class="text-starlight text-sm font-medium text-right">Anashrita Rijal</span>
+                </div>
+                <div class="flex justify-between items-baseline gap-6 py-3 border-b border-white/[0.06]">
+                    <span class="text-dust text-sm">Editor</span>
+                    <span class="text-starlight text-sm font-medium text-right">Elsan Pun</span>
+                </div>
+                <div class="flex justify-between items-baseline gap-6 py-3 border-b border-white/[0.06]">
+                    <span class="text-dust text-sm">Outreach Manager</span>
+                    <span class="text-starlight text-sm font-medium text-right">Ashlesha Thapa Chhetri</span>
+                </div>
+                <div class="flex justify-between items-baseline gap-6 py-3 border-b border-white/[0.06]">
+                    <span class="text-dust text-sm">IT Head</span>
+                    <span class="text-starlight text-sm font-medium text-right">Hitesh Shah</span>
+                </div>
+                <div class="flex justify-between items-baseline gap-6 py-3 border-b border-white/[0.06]">
+                    <span class="text-dust text-sm">Social Media Manager and Designer</span>
+                    <span class="text-starlight text-sm font-medium text-right">Vaibhav Sah</span>
+                </div>
+                <div class="flex justify-between items-baseline gap-6 py-3 border-b border-white/[0.06]">
+                    <span class="text-dust text-sm">Photographer</span>
+                    <span class="text-starlight text-sm font-medium text-right">Nishchay Man Joshi</span>
+                </div>
+                <div class="flex justify-between items-baseline gap-6 py-3 border-b border-white/[0.06]">
+                    <span class="text-dust text-sm">Member At Large</span>
+                    <span class="text-starlight text-sm font-medium text-right">Rishav Yadav</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Newsletter Section: manually curated volumes, each opens its flipbook reader -->
+        <section id="magazine" class="py-28 px-6 lg:px-10 max-w-6xl mx-auto border-t border-white/[0.06]">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-14 gap-4">
+                <h2 class="font-serif text-3xl font-light text-starlight">Magazine</h2>
+                <a href="{% url 'magazine' %}" class="text-sm text-dust hover:text-starlight brass-hover transition">
+                    View all
+                </a>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-14">
+
+                <!-- Volume 1: APOLLO -->
+                <a href="https://online.fliphtml5.com/nhoas/gcgm/#p=1" target="_blank" rel="noopener"
+                   class="news-card group flex flex-col">
+                    <div class="relative aspect-[3/4] overflow-hidden mb-5">
+                        <img src="{% static 'images/magazine/vol1.png' %}" alt="Volume 1: Apollo cover" class="relative w-full h-full object-contain transition-transform duration-700 group-hover:scale-[1.03]">
+                    </div>
+                    <p class="text-xs text-dust/50">December 22, 2024</p>
+                    <h3 class="font-serif text-xl text-starlight mt-1.5">Volume 1: Apollo</h3>
+                    <p class="text-dust text-sm font-light leading-relaxed mt-1">The Echoes of Existence</p>
+                    <div class="pt-4">
+                        <span class="block w-full py-2.5 px-4 border border-white/[0.1] text-center rounded text-sm text-starlight group-hover:border-brass/50">
+                            Read
+                        </span>
+                    </div>
+                </a>
+
+                <!-- Volume 2: ASCENSION -->
+                <a href="https://online.fliphtml5.com/nhoas/tojg/#p=1" target="_blank" rel="noopener"
+                   class="news-card group flex flex-col">
+                    <div class="relative aspect-[3/4] overflow-hidden mb-5">
+                        <img src="{% static 'images/magazine/vol2.png' %}" alt="Volume 2: Ascension cover" class="relative w-full h-full object-contain transition-transform duration-700 group-hover:scale-[1.03]">
+                    </div>
+                    <p class="text-xs text-dust/50">September 21, 2025</p>
+                    <h3 class="font-serif text-xl text-starlight mt-1.5">Volume 2: Ascension</h3>
+                    <p class="text-dust text-sm font-light leading-relaxed mt-1">Exploring Ideas Beyond Horizons</p>
+                    <div class="pt-4">
+                        <span class="block w-full py-2.5 px-4 border border-white/[0.1] text-center rounded text-sm text-starlight group-hover:border-brass/50">
+                            Read
+                        </span>
+                    </div>
+                </a>
+
+                <!-- Volume 3: ASTAREUS -->
+                <a href="https://online.fliphtml5.com/SEDSLoyola/ASTAREUS-SEDS-Loyola-Magazine/" target="_blank" rel="noopener"
+                   class="news-card group flex flex-col">
+                    <div class="relative aspect-[3/4] overflow-hidden mb-5">
+                        <img src="{% static 'images/magazine/vol3.png' %}" alt="Volume 3: Astareus cover" class="relative w-full h-full object-contain transition-transform duration-700 group-hover:scale-[1.03]">
+                    </div>
+                    <p class="text-xs text-dust/50">September 15, 2026</p>
+                    <h3 class="font-serif text-xl text-starlight mt-1.5">Volume 3: Astareus</h3>
+                    <p class="text-dust text-sm font-light leading-relaxed mt-1">The chapter's latest issue</p>
+                    <div class="pt-4">
+                        <span class="block w-full py-2.5 px-4 border border-white/[0.1] text-center rounded text-sm text-starlight group-hover:border-brass/50">
+                            Read
+                        </span>
+                    </div>
+                </a>
+
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="py-14 px-6 border-t border-white/[0.06] bg-black/40 text-center relative z-20">
+        <div class="max-w-5xl mx-auto space-y-2">
+            <p class="text-starlight text-sm">SEDS-Loyola · St. Xavier's College</p>
+            <p class="text-xs text-dust/60 pt-3">© 2026 SEDS Loyola. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <!-- Mobile menu toggle -->
+    <script>
+        const menuToggle = document.getElementById('menu-toggle');
+        const mobileMenu = document.getElementById('mobile-menu');
+        const iconOpen = document.getElementById('menu-icon-open');
+        const iconClose = document.getElementById('menu-icon-close');
+        menuToggle.addEventListener('click', () => {
+            const isOpen = !mobileMenu.classList.contains('hidden');
+            mobileMenu.classList.toggle('hidden');
+            iconOpen.classList.toggle('hidden');
+            iconClose.classList.toggle('hidden');
+            menuToggle.setAttribute('aria-expanded', String(!isOpen));
+        });
+        mobileMenu.querySelectorAll('a').forEach(a => a.addEventListener('click', () => {
+            mobileMenu.classList.add('hidden');
+            iconOpen.classList.remove('hidden');
+            iconClose.classList.add('hidden');
+        }));
+    </script>
+
+    <!-- Starfield generator -->
+    <script>
+        (function () {
+            var field = document.getElementById('starfield');
+            if (!field) return;
+            var count = window.innerWidth < 640 ? 90 : 180;
+            var fragment = document.createDocumentFragment();
+
+            for (var i = 0; i < count; i++) {
+                var dot = document.createElement('div');
+                dot.className = 'starfield-dot';
+
+                var size = (Math.random() * 1.6 + 0.6).toFixed(2); // 0.6px - 2.2px
+                var top = (Math.random() * 100).toFixed(2);
+                var left = (Math.random() * 100).toFixed(2);
+                var duration = (Math.random() * 3 + 2).toFixed(2); // 2s - 5s
+                var delay = (Math.random() * 5).toFixed(2);
+                var minOpacity = (Math.random() * 0.15 + 0.05).toFixed(2);
+                var maxOpacity = (Math.random() * 0.4 + 0.6).toFixed(2);
+
+                dot.style.width = size + 'px';
+                dot.style.height = size + 'px';
+                dot.style.top = top + '%';
+                dot.style.left = left + '%';
+                dot.style.setProperty('--duration', duration + 's');
+                dot.style.setProperty('--delay', delay + 's');
+                dot.style.setProperty('--min-opacity', minOpacity);
+                dot.style.setProperty('--max-opacity', maxOpacity);
+
+                fragment.appendChild(dot);
+            }
+
+            field.appendChild(fragment);
+        })();
+    </script>
+
+    <!-- Three.js High-Detail Photorealistic Earth Engine -->
+    <script>
+        const glow1 = document.getElementById('ambient-glow-1');
+        const glow2 = document.getElementById('ambient-glow-2');
+        window.addEventListener('mousemove', (e) => {
+            const xVal = (e.clientX / window.innerWidth - 0.5) * 30;
+            const yVal = (e.clientY / window.innerHeight - 0.5) * 30;
+            glow1.style.transform = `translate(${xVal}px, ${yVal}px)`;
+            glow2.style.transform = `translate(${-xVal}px, ${-yVal}px)`;
+        });
+
+        const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+        // 3D Scene Setup
+        const canvas = document.getElementById('space-canvas');
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true });
+
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+        const ambientLight = new THREE.AmbientLight(0x333344, 0.5);
+        scene.add(ambientLight);
+
+        const sunLight = new THREE.DirectionalLight(0xffffff, 2.0);
+        sunLight.position.set(15, 8, 12);
+        scene.add(sunLight);
+
+        // Starfield (3D, moves with the scene/camera)
+        const starGeo = new THREE.BufferGeometry();
+        const starCount = 3000;
+        const posArray = new Float32Array(starCount * 3);
+        for (let i = 0; i < starCount * 3; i++) {
+            posArray[i] = (Math.random() - 0.5) * 120;
+        }
+        starGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+        const starMat = new THREE.PointsMaterial({ size: 0.009, color: 0xffffff, transparent: true, opacity: 0.7 });
+        const starField = new THREE.Points(starGeo, starMat);
+        scene.add(starField);
+
+        const earthGroup = new THREE.Group();
+        // Start at the same position the scroll-choreography targets at scrollPercent = 0,
+        // so the Earth doesn't jump from center-screen to the right on page load.
+        earthGroup.position.set(5, 0, 0);
+        scene.add(earthGroup);
+
+        const textureLoader = new THREE.TextureLoader();
+        const baseURL = 'https://cdn.jsdelivr.net/gh/bobbyroe/threejs-earth@master/textures/';
+
+        const dayTexture = textureLoader.load(baseURL + 'earth-daymap-4k.jpg');
+        const bumpTexture = textureLoader.load(baseURL + 'earth-bump-4k.jpg');
+        const cloudTexture = textureLoader.load(baseURL + 'earth-clouds-4k.jpg');
+
+        // Earth radius is 2.5 — cloud and atmosphere shells are scaled to match,
+        // otherwise they sit hidden inside the solid globe.
+        const EARTH_RADIUS = 2.5;
+
+        const earthGeo = new THREE.SphereGeometry(EARTH_RADIUS, 128, 128);
+        const earthMat = new THREE.MeshStandardMaterial({
+            map: dayTexture,
+            bumpMap: bumpTexture,
+            bumpScale: 0.04,
+            roughness: 0.5,
+            metalness: 0.1
+        });
+        const earthMesh = new THREE.Mesh(earthGeo, earthMat);
+        earthGroup.add(earthMesh);
+
+        const cloudGeo = new THREE.SphereGeometry(EARTH_RADIUS * 1.012, 128, 128);
+        const cloudMat = new THREE.MeshStandardMaterial({
+            map: cloudTexture,
+            transparent: true,
+            opacity: 0.8,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false
+        });
+        const cloudMesh = new THREE.Mesh(cloudGeo, cloudMat);
+        earthGroup.add(cloudMesh);
+
+        // Atmosphere tinted brass/blue rather than pure cyan, to match the palette
+        const atmosGeo = new THREE.SphereGeometry(EARTH_RADIUS * 1.04, 64, 64);
+        const atmosMat = new THREE.MeshBasicMaterial({
+            color: 0x6f8fc9,
+            transparent: true,
+            opacity: 0.14,
+            side: THREE.BackSide,
+            blending: THREE.AdditiveBlending
+        });
+        const atmosMesh = new THREE.Mesh(atmosGeo, atmosMat);
+        earthGroup.add(atmosMesh);
+
+        earthGroup.rotation.z = 0.41;
+        camera.position.z = 7.5;
+
+        let scrollPercent = 0;
+        let threeMouseX = 0;
+        let threeMouseY = 0;
+        let targetX = 0;
+        let targetY = 0;
+
+        window.addEventListener('scroll', () => {
+            const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+            scrollPercent = window.scrollY / (maxScroll || 1);
+        });
+
+        window.addEventListener('mousemove', (event) => {
+            threeMouseX = (event.clientX - window.innerWidth / 2) / (window.innerWidth / 2);
+            threeMouseY = (event.clientY - window.innerHeight / 2) / (window.innerHeight / 2);
+        });
+
+        const clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const elapsedTime = clock.getElapsedTime();
+
+            if (!prefersReducedMotion) {
+                targetX += (threeMouseX - targetX) * 0.03;
+                targetY += (threeMouseY - targetY) * 0.03;
+                starField.rotation.y = elapsedTime * 0.0015 + targetX * 0.02;
+                earthMesh.rotation.y = elapsedTime * 0.015;
+                cloudMesh.rotation.y = elapsedTime * 0.02;
+            }
+
+            const targetPosX = 5.0 - (scrollPercent * 8.0);
+            const targetPosY = Math.sin(scrollPercent * Math.PI * 2) * 0.2;
+            const targetZoom = 7.5 - (scrollPercent * 2);
+
+            earthGroup.position.x += (targetPosX - earthGroup.position.x) * 0.04;
+            earthGroup.position.y += (targetPosY - earthGroup.position.y) * 0.04;
+            camera.position.z += (targetZoom - camera.position.z) * 0.04;
+
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>

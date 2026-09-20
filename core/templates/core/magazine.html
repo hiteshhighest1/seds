@@ -1,0 +1,550 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="{% static 'images/logo.png' %}">
+    <title>Magazine</title>
+
+    <!-- Fonts: Spectral for display, Inter for body/UI -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,300;0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Tailwind Custom Configuration -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        void: '#05060a',
+                        panel: '#0d0f1a',
+                        brass: '#b98d4a',
+                        brassLight: '#d4b077',
+                        starlight: '#eef2f6',
+                        dust: '#8992a6',
+                        nebula: '#4c6fa5',
+                    },
+                    fontFamily: {
+                        serif: ['Spectral', 'serif'],
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        @media (prefers-reduced-motion: reduce) {
+            * { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+        }
+        a:focus-visible, button:focus-visible {
+            outline: 2px solid #b98d4a;
+            outline-offset: 3px;
+            border-radius: 2px;
+        }
+        .brass-hover { position: relative; }
+        .brass-hover::after {
+            content: '';
+            position: absolute;
+            left: 0; bottom: -1px;
+            width: 0%; height: 1px;
+            background: #b98d4a;
+            transition: width 0.4s ease;
+        }
+        .brass-hover:hover::after { width: 100%; }
+
+        /* Starfield */
+        @keyframes star-twinkle {
+            0%, 100% { opacity: var(--min-opacity, 0.15); }
+            50% { opacity: var(--max-opacity, 0.9); }
+        }
+        .starfield-dot {
+            position: absolute;
+            background: #ffffff;
+            border-radius: 9999px;
+            animation: star-twinkle var(--duration, 3.5s) ease-in-out infinite;
+            animation-delay: var(--delay, 0s);
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .starfield-dot { animation: none; opacity: 0.5; }
+        }
+
+        /* Magazine cover styling (shared by whichever slide is rendering) */
+        .mag-card { perspective: 1200px; }
+        .mag-card-inner {
+            transform-style: preserve-3d;
+            transition: transform 0.15s ease-out;
+            animation: mag-float 6s ease-in-out infinite;
+            will-change: transform;
+        }
+        @keyframes mag-float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-8px); }
+        }
+        .mag-cover {
+            position: relative;
+            border-radius: 0.5rem;
+            overflow: hidden;
+            box-shadow: 0 25px 60px -25px rgba(0, 0, 0, 0.75);
+            transition: box-shadow 0.3s ease;
+        }
+        .mag-card:hover .mag-cover {
+            box-shadow: 0 35px 70px -20px rgba(185, 141, 74, 0.25), 0 25px 60px -25px rgba(0, 0, 0, 0.8);
+        }
+        .mag-gloss {
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at var(--mx, 50%) var(--my, 50%), rgba(255,255,255,0.28), transparent 55%);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+        }
+        .mag-card:hover .mag-gloss { opacity: 1; }
+        .mag-edge {
+            position: absolute;
+            top: 0; bottom: 0; right: -6px;
+            width: 6px;
+            background: linear-gradient(to right, rgba(0,0,0,0.5), rgba(0,0,0,0.1));
+            transform: rotateY(90deg);
+            transform-origin: left;
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .mag-card-inner { animation: none; }
+        }
+
+        /* Coverflow stage: slides are absolutely stacked and positioned entirely by JS transforms */
+        #mag-stage {
+            transform-style: preserve-3d;
+            touch-action: pan-y;
+            cursor: grab;
+        }
+        #mag-stage:active { cursor: grabbing; }
+        .mag-slide {
+            top: 0;
+            left: 50%;
+            transition: transform 0.55s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.55s ease;
+        }
+        .mag-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 9999px;
+            background: rgba(238, 242, 246, 0.25);
+            transition: background 0.3s ease, transform 0.3s ease;
+        }
+        .mag-dot[data-active="true"] {
+            background: #b98d4a;
+            transform: scale(1.5);
+        }
+        .mag-nav-btn { transition: opacity 0.3s ease, border-color 0.3s ease; }
+        .mag-nav-btn:disabled { opacity: 0.25; cursor: default; }
+        .sr-only {
+            position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+            overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+        }
+        #mag-info p, #mag-info h3 { transition: opacity 0.3s ease; }
+    </style>
+</head>
+<body class="bg-void text-starlight font-sans antialiased min-h-screen selection:bg-brass selection:text-void relative overflow-x-hidden">
+
+    <!-- Background wash + faint nebula tint -->
+    <div class="fixed inset-0 pointer-events-none z-0 bg-gradient-to-b from-[#05060a] via-[#070811] to-[#04050a]"></div>
+    <div id="ambient-glow-1" class="fixed top-1/4 -left-40 w-[28rem] h-[28rem] bg-nebula/10 rounded-full blur-[150px] pointer-events-none z-0"></div>
+    <div id="ambient-glow-2" class="fixed bottom-1/4 -right-40 w-[26rem] h-[26rem] bg-brass/10 rounded-full blur-[150px] pointer-events-none z-0"></div>
+
+    <!-- Starfield -->
+    <div id="starfield" aria-hidden="true" class="fixed inset-0 z-0 overflow-hidden pointer-events-none"></div>
+
+    <!-- Header -->
+    <header class="fixed top-0 left-0 right-0 z-50 bg-void/70 backdrop-blur-lg border-b border-white/[0.06]">
+        <div class="max-w-6xl mx-auto px-6 lg:px-10 h-16 flex items-center justify-between">
+            <a href="{% url 'home' %}" class="text-sm font-medium tracking-wide text-starlight flex items-center gap-2.5">
+                <img src="{% static 'images/logo.png' %}" alt="SEDS Loyola logo" class="w-7 h-7 object-contain shrink-0">
+                SEDS Loyola
+            </a>
+            <nav class="hidden md:flex gap-9 text-sm text-dust">
+                <a href="{% url 'home' %}" class="hover:text-starlight brass-hover transition">Home</a>
+                <a href="{% url 'magazine' %}" class="text-starlight brass-hover">Magazine</a>
+                <a href="{% url 'gallery' %}" class="hover:text-starlight brass-hover transition">Gallery</a>
+                <a href="{% url 'home' %}#contact" class="hover:text-starlight brass-hover transition">Contact</a>
+            </nav>
+            <button id="menu-toggle" class="md:hidden text-starlight" aria-label="Open menu" aria-expanded="false">
+                <svg id="menu-icon-open" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+                <svg id="menu-icon-close" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="hidden"><path d="M6 6l12 12M18 6L6 18"/></svg>
+            </button>
+        </div>
+        <div id="mobile-menu" class="hidden md:hidden border-t border-white/[0.06] bg-void/95 px-6 py-4 flex flex-col gap-4 text-sm text-dust">
+            <a href="{% url 'home' %}" class="hover:text-starlight transition">Home</a>
+            <a href="{% url 'magazine' %}" class="text-starlight">Magazine</a>
+            <a href="{% url 'gallery' %}" class="hover:text-starlight transition">Gallery</a>
+            <a href="{% url 'home' %}#contact" class="hover:text-starlight transition">Contact</a>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="relative z-20">
+
+        <!-- Hero -->
+        <section class="pt-40 pb-16 px-6 lg:px-10 max-w-5xl mx-auto text-center">
+            <p class="text-sm text-dust mb-5">SEDS Loyola</p>
+            <h1 class="font-serif text-4xl md:text-5xl font-light text-starlight mb-6 leading-[1.15]">Magazine</h1>
+            <p class="text-lg text-dust font-light max-w-2xl mx-auto leading-relaxed">
+                Have a look at the magazine published by SEDS loyola.
+            </p>
+        </section>
+
+        <!-- Magazine coverflow: one volume centered, the rest peeking in 3D at the sides -->
+        <section class="pb-28 px-6 lg:px-10 max-w-6xl mx-auto">
+            <div class="relative max-w-lg mx-auto" tabindex="0" aria-roledescription="carousel" aria-label="Magazine volumes">
+
+                <p id="mag-status" class="sr-only" aria-live="polite">Showing volume 1 of 3</p>
+
+                <!-- Prev / Next -->
+                <button id="mag-prev" type="button" aria-label="Previous volume"
+                    class="mag-nav-btn absolute left-0 sm:-left-16 top-[150px] sm:top-[192px] -translate-y-1/2 z-40 w-10 h-10 rounded-full border border-white/[0.12] bg-void/60 backdrop-blur flex items-center justify-center text-starlight hover:border-brass/50">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M15 6l-6 6 6 6"/></svg>
+                </button>
+                <button id="mag-next" type="button" aria-label="Next volume"
+                    class="mag-nav-btn absolute right-0 sm:-right-16 top-[150px] sm:top-[192px] -translate-y-1/2 z-40 w-10 h-10 rounded-full border border-white/[0.12] bg-void/60 backdrop-blur flex items-center justify-center text-starlight hover:border-brass/50">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 6l6 6-6 6"/></svg>
+                </button>
+
+                <div id="mag-stage" class="relative h-80 sm:h-[24rem]" style="perspective: 1400px;">
+
+                    <a href="https://online.fliphtml5.com/nhoas/gcgm/#p=1" target="_blank" rel="noopener"
+                       class="mag-card mag-slide absolute w-56 sm:w-72 -ml-28 sm:-ml-36 block"
+                       data-index="0" data-date="December 22, 2024" data-title="Volume 1: Apollo" data-tagline="The Echoes of Existence">
+                        <div class="mag-card-inner">
+                            <div class="mag-cover aspect-[3/4]">
+                                <img src="{% static 'images/magazine/vol1.png' %}" alt="Volume 1: Apollo cover" class="w-full h-full object-contain" draggable="false">
+                                <div class="mag-gloss"></div>
+                                <div class="mag-edge"></div>
+                            </div>
+                        </div>
+                    </a>
+
+                    <a href="https://online.fliphtml5.com/nhoas/tojg/#p=1" target="_blank" rel="noopener"
+                       class="mag-card mag-slide absolute w-56 sm:w-72 -ml-28 sm:-ml-36 block"
+                       data-index="1" data-date="September 21, 2025" data-title="Volume 2: Ascension" data-tagline="Exploring Ideas Beyond Horizons">
+                        <div class="mag-card-inner">
+                            <div class="mag-cover aspect-[3/4]">
+                                <img src="{% static 'images/magazine/vol2.png' %}" alt="Volume 2: Ascension cover" class="w-full h-full object-contain" draggable="false">
+                                <div class="mag-gloss"></div>
+                                <div class="mag-edge"></div>
+                            </div>
+                        </div>
+                    </a>
+
+                    <a href="https://online.fliphtml5.com/SEDSLoyola/ASTAREUS-SEDS-Loyola-Magazine" target="_blank" rel="noopener"
+                       class="mag-card mag-slide absolute w-56 sm:w-72 -ml-28 sm:-ml-36 block"
+                       data-index="2" data-date="September 15, 2026" data-title="Volume 3: Astareus" data-tagline="The chapter's latest issue">
+                        <div class="mag-card-inner">
+                            <div class="mag-cover aspect-[3/4]">
+                                <img src="{% static 'images/magazine/vol3.png' %}" alt="Volume 3: Astareus cover" class="w-full h-full object-contain" draggable="false">
+                                <div class="mag-gloss"></div>
+                                <div class="mag-edge"></div>
+                            </div>
+                        </div>
+                    </a>
+
+                </div>
+
+                <div id="mag-info" class="mt-8 text-center">
+                    <p id="mag-date" class="text-sm text-brass">December 22, 2024</p>
+                    <h3 id="mag-title" class="font-serif text-lg text-starlight mt-1">Volume 1: Apollo</h3>
+                    <p id="mag-tagline" class="text-dust text-sm font-light mt-1">The Echoes of Existence</p>
+                </div>
+
+                <!-- Dots -->
+                <div id="mag-dots" class="flex justify-center gap-2.5 mt-8">
+                    <button type="button" class="mag-dot" data-index="0" aria-label="Go to volume 1"></button>
+                    <button type="button" class="mag-dot" data-index="1" aria-label="Go to volume 2"></button>
+                    <button type="button" class="mag-dot" data-index="2" aria-label="Go to volume 3"></button>
+                </div>
+
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="py-14 px-6 border-t border-white/[0.06] bg-black/40 text-center relative z-20">
+        <div class="max-w-5xl mx-auto space-y-2">
+            <p class="text-starlight text-sm">SEDS-Loyola · St. Xavier's College</p>
+            <p class="text-xs text-dust/60 pt-3">© 2026 SEDS Loyola. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <!-- Mobile menu toggle -->
+    <script>
+        const menuToggle = document.getElementById('menu-toggle');
+        const mobileMenu = document.getElementById('mobile-menu');
+        const iconOpen = document.getElementById('menu-icon-open');
+        const iconClose = document.getElementById('menu-icon-close');
+        menuToggle.addEventListener('click', () => {
+            const isOpen = !mobileMenu.classList.contains('hidden');
+            mobileMenu.classList.toggle('hidden');
+            iconOpen.classList.toggle('hidden');
+            iconClose.classList.toggle('hidden');
+            menuToggle.setAttribute('aria-expanded', String(!isOpen));
+        });
+        mobileMenu.querySelectorAll('a').forEach(a => a.addEventListener('click', () => {
+            mobileMenu.classList.add('hidden');
+            iconOpen.classList.remove('hidden');
+            iconClose.classList.add('hidden');
+        }));
+    </script>
+
+    <!-- Starfield generator -->
+    <script>
+        (function () {
+            var field = document.getElementById('starfield');
+            if (!field) return;
+            var count = window.innerWidth < 640 ? 90 : 180;
+            var fragment = document.createDocumentFragment();
+
+            for (var i = 0; i < count; i++) {
+                var dot = document.createElement('div');
+                dot.className = 'starfield-dot';
+
+                var size = (Math.random() * 1.6 + 0.6).toFixed(2);
+                var top = (Math.random() * 100).toFixed(2);
+                var left = (Math.random() * 100).toFixed(2);
+                var duration = (Math.random() * 3 + 2).toFixed(2);
+                var delay = (Math.random() * 5).toFixed(2);
+                var minOpacity = (Math.random() * 0.15 + 0.05).toFixed(2);
+                var maxOpacity = (Math.random() * 0.4 + 0.6).toFixed(2);
+
+                dot.style.width = size + 'px';
+                dot.style.height = size + 'px';
+                dot.style.top = top + '%';
+                dot.style.left = left + '%';
+                dot.style.setProperty('--duration', duration + 's');
+                dot.style.setProperty('--delay', delay + 's');
+                dot.style.setProperty('--min-opacity', minOpacity);
+                dot.style.setProperty('--max-opacity', maxOpacity);
+
+                fragment.appendChild(dot);
+            }
+
+            field.appendChild(fragment);
+        })();
+    </script>
+
+    <!-- Coverflow: every slide is positioned continuously by its distance from the centered index -->
+    <script>
+        (function () {
+            var stage = document.getElementById('mag-stage');
+            var prevBtn = document.getElementById('mag-prev');
+            var nextBtn = document.getElementById('mag-next');
+            var dots = document.querySelectorAll('.mag-dot');
+            var status = document.getElementById('mag-status');
+            var dateEl = document.getElementById('mag-date');
+            var titleEl = document.getElementById('mag-title');
+            var taglineEl = document.getElementById('mag-tagline');
+            var carousel = stage ? stage.closest('[aria-roledescription="carousel"]') : null;
+            if (!stage) return;
+
+            var slides = Array.prototype.slice.call(stage.querySelectorAll('.mag-slide'));
+            var slideCount = slides.length;
+            var current = 0;
+            var virtual = 0;
+            var dragging = false;
+            var wasDragged = false;
+            var startX = 0;
+
+            function wrapDelta(raw) {
+                var d = raw % slideCount;
+                if (d > slideCount / 2) d -= slideCount;
+                if (d < -slideCount / 2) d += slideCount;
+                return d;
+            }
+
+            function applyStage(v) {
+                slides.forEach(function (slide) {
+                    var idx = parseInt(slide.dataset.index, 10);
+                    var d = wrapDelta(idx - v);
+                    var absD = Math.abs(d);
+                    var translateX = d * 82;               // % of the slide's own width
+                    var rotateY = Math.max(-42, Math.min(42, -d * 42)); // deg
+                    var scale = Math.max(1 - absD * 0.22, 0.45);
+                    var opacity = Math.max(1 - absD * 0.6, 0);
+                    var z = Math.round(100 - absD * 10);
+
+                    slide.style.transform =
+                        'translateX(' + translateX.toFixed(2) + '%) rotateY(' + rotateY.toFixed(2) + 'deg) scale(' + scale.toFixed(3) + ')';
+                    slide.style.opacity = opacity.toFixed(2);
+                    slide.style.zIndex = z;
+                    slide.style.pointerEvents = absD < 1.4 ? 'auto' : 'none';
+                });
+            }
+
+            function updateInfo(displayIndex) {
+                var active = slides[displayIndex];
+                if (dateEl) dateEl.textContent = active.dataset.date;
+                if (titleEl) titleEl.textContent = active.dataset.title;
+                if (taglineEl) taglineEl.textContent = active.dataset.tagline;
+            }
+
+            function setTransitions(on) {
+                slides.forEach(function (s) { s.style.transition = on ? '' : 'none'; });
+            }
+
+            function render(animated) {
+                setTransitions(animated);
+                virtual = current;
+                applyStage(virtual);
+                var displayIndex = ((current % slideCount) + slideCount) % slideCount;
+                dots.forEach(function (dot, i) {
+                    dot.setAttribute('data-active', i === displayIndex ? 'true' : 'false');
+                });
+                if (status) status.textContent = 'Showing volume ' + (displayIndex + 1) + ' of ' + slideCount;
+                updateInfo(displayIndex);
+            }
+
+            function goTo(index) {
+                current = index;
+                render(true);
+            }
+
+            if (prevBtn) prevBtn.addEventListener('click', function () { goTo(current - 1); });
+            if (nextBtn) nextBtn.addEventListener('click', function () { goTo(current + 1); });
+            dots.forEach(function (dot) {
+                dot.addEventListener('click', function () {
+                    var idx = parseInt(dot.dataset.index, 10);
+                    goTo(Math.round(current + wrapDelta(idx - current)));
+                });
+            });
+
+            if (carousel) {
+                carousel.addEventListener('keydown', function (e) {
+                    if (e.key === 'ArrowLeft') { e.preventDefault(); goTo(current - 1); }
+                    if (e.key === 'ArrowRight') { e.preventDefault(); goTo(current + 1); }
+                });
+            }
+
+            // Pointer-based drag/swipe — every pixel of movement updates the 3D stage live.
+            // Pointer capture is only claimed once a real drag is detected (past the 8px
+            // threshold), so a plain tap never gets its target retargeted to the stage and
+            // the browser's normal link click fires exactly like it would on any other link.
+            var pointerId = null;
+            var captured = false;
+
+            stage.addEventListener('pointerdown', function (e) {
+                dragging = true;
+                wasDragged = false;
+                captured = false;
+                pointerId = e.pointerId;
+                startX = e.clientX;
+            });
+
+            stage.addEventListener('pointermove', function (e) {
+                if (!dragging) return;
+                var dx = e.clientX - startX;
+
+                if (!wasDragged && Math.abs(dx) > 8) {
+                    wasDragged = true;
+                    captured = true;
+                    setTransitions(false);
+                    try { stage.setPointerCapture(pointerId); } catch (err) {}
+                }
+
+                if (!wasDragged) return;
+
+                var stageWidth = stage.clientWidth || 300;
+                virtual = current - (dx / stageWidth) * 1.7;
+                applyStage(virtual);
+            });
+
+            function endDrag(e) {
+                if (!dragging) return;
+                dragging = false;
+                if (captured) {
+                    if (e && e.pointerId != null) {
+                        try { stage.releasePointerCapture(e.pointerId); } catch (err) {}
+                    }
+                    goTo(Math.round(virtual));
+                    captured = false;
+                }
+                // If it wasn't a drag, do nothing here — let the native click proceed untouched.
+            }
+
+            stage.addEventListener('pointerup', endDrag);
+            stage.addEventListener('pointercancel', endDrag);
+
+            // A tap on a side cover navigates to it instead of opening its link.
+            // A click that followed a real drag is swallowed. A tap on the centered
+            // cover is left completely alone, so the browser opens its link natively.
+            stage.addEventListener('click', function (e) {
+                if (wasDragged) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    wasDragged = false;
+                    return;
+                }
+
+                var slideEl = e.target.closest('.mag-slide');
+                if (!slideEl) return;
+
+                var idx = parseInt(slideEl.dataset.index, 10);
+                var displayIndex = ((current % slideCount) + slideCount) % slideCount;
+
+                if (idx !== displayIndex) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    goTo(Math.round(current + wrapDelta(idx - current)));
+                }
+                // else: centered cover, no drag — let the default anchor click open the link.
+            }, true);
+
+            render(false);
+        })();
+    </script>
+
+    <!-- 3D tilt for the active magazine cover: follows the cursor -->
+    <script>
+        (function () {
+            var prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            if (prefersReducedMotion) return;
+
+            var cards = document.querySelectorAll('.mag-card');
+            cards.forEach(function (card) {
+                var inner = card.querySelector('.mag-card-inner');
+                var gloss = card.querySelector('.mag-gloss');
+                if (!inner) return;
+
+                var maxTilt = 12; // degrees
+
+                card.addEventListener('mousemove', function (e) {
+                    var bounds = card.getBoundingClientRect();
+                    var mouseX = e.clientX - bounds.left;
+                    var mouseY = e.clientY - bounds.top;
+                    var offsetX = (mouseX / bounds.width - 0.5) * 2;
+                    var offsetY = (mouseY / bounds.height - 0.5) * 2;
+
+                    var rotateY = offsetX * maxTilt;
+                    var rotateX = -offsetY * maxTilt;
+
+                    inner.style.animation = 'none';
+                    inner.style.transform =
+                        'translateY(-4px) rotateX(' + rotateX.toFixed(2) + 'deg) rotateY(' + rotateY.toFixed(2) + 'deg)';
+
+                    if (gloss) {
+                        gloss.style.setProperty('--mx', (mouseX / bounds.width * 100) + '%');
+                        gloss.style.setProperty('--my', (mouseY / bounds.height * 100) + '%');
+                    }
+                });
+
+                card.addEventListener('mouseleave', function () {
+                    inner.style.transform = '';
+                    inner.style.animation = '';
+                });
+            });
+        })();
+    </script>
+</body>
+</html>
