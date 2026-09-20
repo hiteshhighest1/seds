@@ -1,0 +1,14 @@
+{
+    "builds": [
+        {
+            "src": "seds_loyola_project/wsgi.py",
+            "use": "@vercel/python"
+        }
+    ],
+    "routes": [
+        {
+            "src": "/(.*)",
+            "dest": "seds_loyola_project/wsgi.py"
+        }
+    ]
+}
