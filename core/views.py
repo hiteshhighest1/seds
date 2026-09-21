@@ -1,5 +1,5 @@
 from django.shortcuts import render
-from django.core.mail import send_mail
+from django.core.mail import EmailMessage
 from django.contrib import messages
 from django.conf import settings
 
@@ -37,14 +37,15 @@ Message:
 """
 
         try:
-            send_mail(
+            email_message = EmailMessage(
                 subject=email_subject,
-                message=email_body,
+                body=email_body,
                 from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=["seds.loyola@sxc.edu.np"],
+                to=["seds.loyola@sxc.edu.np"],
                 reply_to=[email],
-                fail_silently=False,
             )
+
+            email_message.send(fail_silently=False)
 
             messages.success(
                 request,
@@ -56,7 +57,6 @@ Message:
             messages.error(
                 request,
                 "There was a problem sending your message."
-
             )
 
     return render(request, "core/contact.html")
