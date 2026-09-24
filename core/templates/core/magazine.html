@@ -5,6 +5,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" type="image/png" href="{% static 'images/logo.png' %}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400..900&family=Original+Surfer&family=Oxanium:wght@200..800&family=Science+Gothic:wght@100..900&display=swap" rel="stylesheet">
     <title>Magazine</title>
 
     <!-- Fonts: Spectral for display, Inter for body/UI -->
@@ -162,7 +165,7 @@
     <!-- Header -->
     <header class="fixed top-0 left-0 right-0 z-50 bg-void/70 backdrop-blur-lg border-b border-white/[0.06]">
         <div class="max-w-6xl mx-auto px-6 lg:px-10 h-16 flex items-center justify-between">
-            <a href="{% url 'home' %}" class="text-sm font-medium tracking-wide text-starlight flex items-center gap-2.5">
+            <a href="{% url 'home' %}" class="text-sm font-medium tracking-wide text-starlight flex items-center gap-2.5" style="font-family: 'Oxanium', sans-serif;">
                 <img src="{% static 'images/logo.png' %}" alt="SEDS Loyola logo" class="w-7 h-7 object-contain shrink-0">
                 SEDS Loyola
             </a>
@@ -170,7 +173,7 @@
                 <a href="{% url 'home' %}" class="hover:text-starlight brass-hover transition">Home</a>
                 <a href="{% url 'magazine' %}" class="text-starlight brass-hover">Magazine</a>
                 <a href="{% url 'gallery' %}" class="hover:text-starlight brass-hover transition">Gallery</a>
-                <a href="{% url 'home' %}#contact" class="hover:text-starlight brass-hover transition">Contact</a>
+                <a href="{% url 'contact' %}" class="hover:text-starlight brass-hover transition">Contact</a>
             </nav>
             <button id="menu-toggle" class="md:hidden text-starlight" aria-label="Open menu" aria-expanded="false">
                 <svg id="menu-icon-open" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
@@ -178,10 +181,10 @@
             </button>
         </div>
         <div id="mobile-menu" class="hidden md:hidden border-t border-white/[0.06] bg-void/95 px-6 py-4 flex flex-col gap-4 text-sm text-dust">
-            <a href="{% url 'home' %}" class="hover:text-starlight transition">Home</a>
-            <a href="{% url 'magazine' %}" class="text-starlight">Magazine</a>
+            <a href="{% url 'home' %}" class="hover:text-starlight brass-hover transition"">Home</a>
+            <a href="{% url 'magazine' %}" class="text-starlight brass-hover">Magazine</a>
             <a href="{% url 'gallery' %}" class="hover:text-starlight transition">Gallery</a>
-            <a href="{% url 'home' %}#contact" class="hover:text-starlight transition">Contact</a>
+            <a href="{% url 'contact' %}" class="hover:text-starlight transition">Contact</a>
         </div>
     </header>
 
@@ -191,8 +194,8 @@
         <!-- Hero -->
         <section class="pt-40 pb-16 px-6 lg:px-10 max-w-5xl mx-auto text-center">
             <p class="text-sm text-dust mb-5">SEDS Loyola</p>
-            <h1 class="font-serif text-4xl md:text-5xl font-light text-starlight mb-6 leading-[1.15]">Magazine</h1>
-            <p class="text-lg text-dust font-light max-w-2xl mx-auto leading-relaxed">
+            <h1 class="font-serif text-4xl md:text-5xl font-light text-starlight mb-6 leading-[1.15]" style="font-family: 'Science Gothic', sans-serif;">Magazine</h1>
+            <p class="text-lg text-dust font-light max-w-2xl mx-auto leading-relaxed" style="font-family: 'Original Surfer'">
                 Have a look at the magazine published by SEDS loyola.
             </p>
         </section>
