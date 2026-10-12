@@ -2,6 +2,40 @@ from django.shortcuts import render
 from django.core.mail import EmailMessage
 from django.contrib import messages
 from django.conf import settings
+from django.http import HttpResponse
+
+def sitemap_xml(request):
+    base_url = "https://sedsloyola.vercel.app"
+
+    paths = [
+        "/",
+        "/gallery.html",
+        "/contact.html",
+        "/magazine.html",
+    ]
+
+    urls = "".join(
+        f"<url><loc>{base_url}{path}</loc></url>"
+        for path in paths
+    )
+
+    xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+        f'{urls}'
+        '</urlset>'
+    )
+
+    return HttpResponse(xml, content_type="application/xml")
+
+def robots_txt(request):
+    content = (
+        "User-agent: *\n"
+        "Allow: /\n\n"
+        "Sitemap: https://sedsloyola.vercel.app/sitemap.xml\n"
+    )
+
+    return HttpResponse(content, content_type="text/plain")
 
 def index_view(request):
     return render(request, 'core/index.html')
